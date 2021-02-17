@@ -26,8 +26,9 @@ const MINUTE = 60 * SECOND
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
-export function get24HoursAgo(): number {
-  return Math.floor((Date.now() - DAY) / 1000)
+export function get24HoursAgo(): number
+{
+  return Math.floor((Date.now() - DAY) / 1000);
 }
 
 export type Pair = TopPairsQuery['pairs'][number]
@@ -233,42 +234,40 @@ interface SwapMapped extends Swap {
   amountBOut: string
 }
 
-export async function getSwaps(tokenA: string, tokenB: string): Promise<SwapMapped[]> {
-  const _24HoursAgo = get24HoursAgo()
-  const [token0, token1] = sortedFormatted(tokenA, tokenB)
+// Gets the swaps (aka trades) done on tokenA x tokenB
+export async function getSwaps(tokenA: string, tokenB: string): Promise<SwapMapped[]>
+{
+  const _24HoursAgo = Math.floor((Date.now() - DAY) / SECOND);
+  const [token0, token1] = sortedFormatted(tokenA, tokenB);
 
-  let {
-    data: {
-      pairs: [{ id: pairAddress }]
-    }
-  } = await client.query({
+  let { data: {
+    pairs: [{ id: pairAddress }]
+  } } = await client.query({
     query: PAIR_FROM_TOKENS,
-    variables: {
-      token0,
-      token1
-    }
-  })
+    variables: { token0, token1 }
+  });
 
-  const sorted = isSorted(tokenA, tokenB)
-  let skip = 0
-  let results: SwapMapped[] = []
-  let finished = false
-  while (!finished) {
-    await client
-      .query<SwapsByPairQuery, SwapsByPairQueryVariables>({
+  const sorted = isSorted(tokenA, tokenB);
+
+  let skip = 0;
+  let results: SwapMapped[] = [];
+  let finished = false;
+
+  while (!finished)
+  {
+    await client.query<SwapsByPairQuery, SwapsByPairQueryVariables>({
         query: SWAPS_BY_PAIR,
-        variables: {
-          skip,
-          pairAddress,
-          timestamp: _24HoursAgo
+        variables: { skip, pairAddress, timestamp: _24HoursAgo }
+      }).then(({ data: { swaps } }): void => {
+        if (!swaps || swaps.length === 0)
+        {
+          // No more swaps found for last 24 hours - end the query
+          finished = true;
         }
-      })
-      .then(({ data: { swaps } }): void => {
-        if (!swaps || swaps.length === 0) {
-          finished = true
-        } else {
-          skip += swaps.length
-
+        else
+        {
+          // If not finished fetch the next set
+          skip += swaps.length;
           results = results.concat(
             swaps.map(
               (swap: Swap): SwapMapped => ({
@@ -283,6 +282,23 @@ export async function getSwaps(tokenA: string, tokenB: string): Promise<SwapMapp
         }
       })
   }
+
+  // console.log(results);
+  /*
+    {
+      id: '0x6b986af851e011278e7b61199c9ee3ffd774b482cae70f94fb2f31ab8078c47f-0',
+      timestamp: '1613492168',
+      amount0In: '0',
+      amount0Out: '2.66004617',
+      amount1In: '73.763848941712794272',
+      amount1Out: '0',
+      __typename: 'Swap',
+      amountAIn: '0',
+      amountAOut: '2.66004617',
+      amountBIn: '73.763848941712794272',
+      amountBOut: '0'
+    },
+  */
 
   return results
 }

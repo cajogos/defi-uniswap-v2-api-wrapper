@@ -51,66 +51,6 @@ plugins:
 
 functions:
 
-  # v1-summary:
-  #   handler: src/v1/summary.handler
-  #   events:
-  #     - http:
-  #         method: get
-  #         path: /v1/summary
-  #         private: true
-  #         caching:
-  #           enabled: true
-  #           ttlInSeconds: 900
-
-  # v1-tickers:
-  #   handler: src/v1/tickers.handler
-  #   events:
-  #     - http:
-  #         method: get
-  #         path: /v1/tickers
-  #         private: true
-  #         caching:
-  #           enabled: true
-  #           ttlInSeconds: 60
-
-  # v1-assets:
-  #   handler: src/v1/assets.handler
-  #   events:
-  #     - http:
-  #         method: get
-  #         path: /v1/assets
-  #         private: true
-  #         caching:
-  #           enabled: true
-  #           ttlInSeconds: 3600
-
-  # v1-orderbook:
-  #   handler: src/v1/orderbook.handler
-  #   events:
-  #     - http:
-  #         method: get
-  #         path: "/v1/orderbook/{pair}"
-  #         private: true
-  #         caching:
-  #           enabled: true
-  #           cacheKeyParameters:
-  #             - name: request.path.pair
-  #           ttlInSeconds: 3600
-
-
-  # v1-trades:
-  #   handler: src/v1/trades.handler
-  #   events:
-  #     - http:
-  #         method: get
-  #         path: "/v1/trades/{pair}"
-  #         private: true
-  #         caching:
-  #           enabled: true
-  #           cacheKeyParameters:
-  #             - name: request.path.pair
-  #           ttlInSeconds: 900
-
   v2-summary: # DONE
     handler: src/v2/summary.handler
     events:
@@ -144,7 +84,7 @@ functions:
             enabled: true
             ttlInSeconds: 3600
 
-  v2-orderbook: #TODO
+  v2-orderbook: # DONE
     handler: src/v2/orderbook.handler
     events:
       - http:
@@ -157,7 +97,7 @@ functions:
               - name: request.path.pair
             ttlInSeconds: 3600
 
-  v2-trades: #TODO
+  v2-trades: # DONE
     handler: src/v2/trades.handler
     events:
       - http:

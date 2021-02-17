@@ -52,6 +52,7 @@ export const PAIR_RESERVES_BY_TOKENS = gql`
 export const SWAPS_BY_PAIR = gql`
   query SwapsByPair($skip: Int!, $timestamp: BigInt!, $pairAddress: String!) {
     swaps(
+      first: 500
       skip: $skip
       where: { timestamp_gte: $timestamp, pair: $pairAddress }
       orderBy: timestamp
