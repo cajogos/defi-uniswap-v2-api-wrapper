@@ -30,8 +30,6 @@ export function get24HoursAgo(): number {
   return Math.floor((Date.now() - DAY) / 1000)
 }
 
-const TOP_PAIR_LIMIT = 10
-
 export type Pair = TopPairsQuery['pairs'][number]
 
 export interface MappedDetailedPair extends Pair {
@@ -40,14 +38,14 @@ export interface MappedDetailedPair extends Pair {
   previous24hVolumeToken1: BigNumber
 }
 
-export async function getTopPairs(): Promise<MappedDetailedPair[]> {
+export async function getTopPairs(limit: number = 10): Promise<MappedDetailedPair[]> {
 
   // Get the current time in epoch
-  const epochSecond = Math.floor(new Date().getTime() / 1000);
+  const epochSecond = Math.floor(new Date().getTime() / SECOND);
   console.log('EPOCH: ' + epochSecond);
 
   // Get the first block for the query
-  const firstBlock = await getBlockFromTimestamp(epochSecond - 86400);
+  const firstBlock = await getBlockFromTimestamp(epochSecond - DAY);
   console.log('FIRST BLOCK: ' + firstBlock);
   if (!firstBlock) throw new Error('first block was not fetched');
 
@@ -57,7 +55,7 @@ export async function getTopPairs(): Promise<MappedDetailedPair[]> {
   } = await client.query<TopPairsQuery, TopPairsQueryVariables>({
     query: TOP_PAIRS,
     variables: {
-      limit: TOP_PAIR_LIMIT,
+      limit: limit,
       excludeTokenIds: BLACKLIST
     },
     fetchPolicy: 'no-cache'
@@ -86,13 +84,13 @@ export async function getTopPairs(): Promise<MappedDetailedPair[]> {
   }
   */
 
-  // Pairs Volume Query
+  // Pairs Volume Query with the block above
   const {
     data: { pairVolumes }, errors: yesterdayVolumeErrors
   } = await client.query<PairsVolumeQuery, PairsVolumeQueryVariables>({
     query: PAIRS_VOLUME_QUERY,
     variables: {
-      limit: TOP_PAIR_LIMIT,
+      limit: limit,
       pairIds: pairs.map(pair => pair.id),
       blockNumber: +firstBlock
     },

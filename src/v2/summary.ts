@@ -15,7 +15,7 @@ interface ReturnShape {
 export const handler: APIGatewayProxyHandler = async () => {
   try
   {
-    const pairs = await getTopPairs();
+    const pairs = await getTopPairs(10);
     console.log('Fetched ' + pairs.length + ' pairs');
 
     let responseBody = pairs.reduce<ReturnShape>((accumulator, pair): any => {

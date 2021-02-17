@@ -18,29 +18,36 @@ interface ReturnShape {
 }
 
 export const handler: APIGatewayProxyHandler = async () => {
-  try {
-    const pairs = await getTopPairs()
-    return createSuccessResponse(
-      pairs.reduce<ReturnShape>((accumulator, pair): ReturnShape => {
-        const id0 = getAddress(pair.token0.id)
-        const id1 = getAddress(pair.token1.id)
+  try
+  {
+    const pairs = await getTopPairs(5);
+    console.log(`TICKERS OBTAINED ${pairs.length} PAIRS`);
 
-        accumulator[`${id0}_${id1}`] = {
-          base_id: id0,
-          base_name: pair.token0.name,
-          base_symbol: pair.token0.symbol,
-          quote_id: id1,
-          quote_name: pair.token1.name,
-          quote_symbol: pair.token1.symbol,
-          last_price: pair.price ?? '0',
-          base_volume: pair.previous24hVolumeToken0.toString(),
-          quote_volume: pair.previous24hVolumeToken1.toString()
-        }
+    let responseBody =  pairs.reduce<ReturnShape>((accumulator, pair): ReturnShape => {
+      const id0 = getAddress(pair.token0.id);
+      const id1 = getAddress(pair.token1.id);
 
-        return accumulator
-      }, {})
-    )
-  } catch (error) {
-    return createServerErrorResponse(error)
+      console.log(id0, id1);
+
+      accumulator[`${id0}_${id1}`] = {
+        base_id: id0,
+        base_name: pair.token0.name,
+        base_symbol: pair.token0.symbol,
+        quote_id: id1,
+        quote_name: pair.token1.name,
+        quote_symbol: pair.token1.symbol,
+        last_price: pair.price ?? '0',
+        base_volume: pair.previous24hVolumeToken0.toString(),
+        quote_volume: pair.previous24hVolumeToken1.toString()
+      }
+
+      return accumulator
+    }, {});
+
+    return createSuccessResponse(responseBody);
+  }
+  catch (error)
+  {
+    return createServerErrorResponse(error);
   }
 }
