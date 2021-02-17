@@ -187,15 +187,18 @@ function isSorted(tokenA: string, tokenB: string): boolean {
   return tokenA.toLowerCase() < tokenB.toLowerCase()
 }
 
-function sortedFormatted(tokenA: string, tokenB: string): [string, string] {
+function sortedFormatted(tokenA: string, tokenB: string): [string, string]
+{
   return isSorted(tokenA, tokenB)
     ? [tokenA.toLowerCase(), tokenB.toLowerCase()]
     : [tokenB.toLowerCase(), tokenA.toLowerCase()]
 }
 
 // returns reserves of token a and b in the order they are queried
-export async function getReserves(tokenA: string, tokenB: string): Promise<[string, string]> {
-  const [token0, token1] = sortedFormatted(tokenA, tokenB)
+export async function getReserves(tokenA: string, tokenB: string): Promise<[string, string]>
+{
+  const [token0, token1] = sortedFormatted(tokenA, tokenB);
+
   return client
     .query<PairReservesQuery, PairReservesQueryVariables>({
       query: PAIR_RESERVES_BY_TOKENS,
@@ -204,9 +207,19 @@ export async function getReserves(tokenA: string, tokenB: string): Promise<[stri
         token1
       }
     })
-    .then(({ data: { pairs: [{ reserve0, reserve1 }] } }): [string, string] =>
-      tokenA.toLowerCase() === token0 ? [reserve0, reserve1] : [reserve1, reserve0]
-    )
+    .then(({ data: { pairs: [{ reserve0, reserve1 }] }}): [string, string] => {
+      if (tokenA.toLowerCase() === token0)
+      {
+        return [
+          reserve0,
+          reserve1
+        ];
+      }
+      return [
+        reserve1,
+        reserve0
+      ];
+    })
 }
 
 type ArrayElement<A> = A extends readonly (infer T)[] ? T : never
