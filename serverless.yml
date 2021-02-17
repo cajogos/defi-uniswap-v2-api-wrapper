@@ -110,6 +110,8 @@ functions:
               - name: request.path.pair
             ttlInSeconds: 900
 
+
+
   v2-summary:
     handler: src/v2/summary.handler
     events:

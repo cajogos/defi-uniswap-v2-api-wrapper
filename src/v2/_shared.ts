@@ -30,7 +30,8 @@ export function get24HoursAgo(): number {
   return Math.floor((Date.now() - DAY) / 1000)
 }
 
-const TOP_PAIR_LIMIT = 1000
+const TOP_PAIR_LIMIT = 10
+
 export type Pair = TopPairsQuery['pairs'][number]
 
 export interface MappedDetailedPair extends Pair {
@@ -40,16 +41,19 @@ export interface MappedDetailedPair extends Pair {
 }
 
 export async function getTopPairs(): Promise<MappedDetailedPair[]> {
-  const epochSecond = Math.floor(new Date().getTime() / 1000)
-  const firstBlock = await getBlockFromTimestamp(epochSecond - 86400)
 
-  if (!firstBlock) {
-    throw new Error('first block was not fetched')
-  }
+  // Get the current time in epoch
+  const epochSecond = Math.floor(new Date().getTime() / 1000);
+  console.log('EPOCH: ' + epochSecond);
 
+  // Get the first block for the query
+  const firstBlock = await getBlockFromTimestamp(epochSecond - 86400);
+  console.log('FIRST BLOCK: ' + firstBlock);
+  if (!firstBlock) throw new Error('first block was not fetched');
+
+  // Fetching the top pairs
   const {
-    data: { pairs },
-    errors: topPairsErrors
+    data: { pairs }, errors: topPairsErrors
   } = await client.query<TopPairsQuery, TopPairsQueryVariables>({
     query: TOP_PAIRS,
     variables: {
@@ -58,15 +62,33 @@ export async function getTopPairs(): Promise<MappedDetailedPair[]> {
     },
     fetchPolicy: 'no-cache'
   })
-
-  if (topPairsErrors && topPairsErrors.length > 0) {
-    console.error('Failed to fetch top pairs', topPairsErrors)
-    throw new Error('Failed to fetch top pairs from the subgraph')
+  if (topPairsErrors && topPairsErrors.length > 0) throw new Error('Failed to fetch top pairs from the subgraph');
+  // console.log(pairs);
+  /*
+      __typename: 'Pair',
+    id: '0xa2107fa5b38d9bbd2c461d6edf11b11a50f6b974',
+    reserve0: '1516278.495792741645192258',
+    reserve1: '26695.012625889882170866',
+    token0: {
+      __typename: 'Token',
+      id: '0x514910771af9ca656af840dff83e8264ecf986ca',
+      name: 'ChainLink Token',
+      symbol: 'LINK'
+    },
+    token1: {
+      __typename: 'Token',
+      id: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      name: 'Wrapped Ether',
+      symbol: 'WETH'
+    },
+    volumeToken0: '110343138.67051774156163507',
+    volumeToken1: '2681864.257250288138901688'
   }
+  */
 
+  // Pairs Volume Query
   const {
-    data: { pairVolumes },
-    errors: yesterdayVolumeErrors
+    data: { pairVolumes }, errors: yesterdayVolumeErrors
   } = await client.query<PairsVolumeQuery, PairsVolumeQueryVariables>({
     query: PAIRS_VOLUME_QUERY,
     variables: {
@@ -76,49 +98,91 @@ export async function getTopPairs(): Promise<MappedDetailedPair[]> {
     },
     fetchPolicy: 'no-cache'
   })
-
-  if (yesterdayVolumeErrors && yesterdayVolumeErrors.length > 0) {
-    console.error('Failed to fetch yesterday volume', yesterdayVolumeErrors)
-    throw new Error(`Failed to get volume info for 24h ago from the subgraph`)
+  if (yesterdayVolumeErrors && yesterdayVolumeErrors.length > 0) throw new Error(`Failed to get volume info for 24h ago from the subgraph`);
+  // console.log(pairVolumes);
+  /*
+    {
+    __typename: 'Pair',
+    id: '0xf52f433b79d21023af94251958bed3b64a2b7930',
+    volumeToken0: '5946156.539511',
+    volumeToken1: '762026.114541'
   }
+  */
 
-  const yesterdayVolumeIndex =
-    pairVolumes?.reduce<{ [pairId: string]: { volumeToken0: BigNumber; volumeToken1: BigNumber } }>((memo, pair) => {
-      memo[pair.id] = { volumeToken0: new BigNumber(pair.volumeToken0), volumeToken1: new BigNumber(pair.volumeToken1) }
+  // Get yesterday volume index
+  const yesterdayVolumeIndex = pairVolumes?.reduce<{ [pairId: string]: {
+    volumeToken0: BigNumber;
+    volumeToken1: BigNumber
+  } }>((memo, pair) => {
+      memo[pair.id] = {
+        volumeToken0: new BigNumber(pair.volumeToken0),
+        volumeToken1: new BigNumber(pair.volumeToken1)
+      }
       return memo
     }, {}) ?? {}
+  // console.log(yesterdayVolumeIndex);
+  /*
+  '0xf52f433b79d21023af94251958bed3b64a2b7930': {
+    volumeToken0: BigNumber { s: 1, e: 6, c: [Array] },
+    volumeToken1: BigNumber { s: 1, e: 5, c: [Array] }
+  }
+  */
 
-  return (
-    pairs?.map(
-      (pair): MappedDetailedPair => {
-        const yesterday = yesterdayVolumeIndex[pair.id]
-        if (yesterday) {
-          if (yesterday.volumeToken0.gt(pair.volumeToken0)) {
-            throw new Error(`Invalid subgraph response: pair ${pair.id} returned volumeToken0 < yesterday.volumeToken0`)
-          }
-          if (yesterday.volumeToken1.gt(pair.volumeToken1)) {
-            throw new Error(`Invalid subgraph response: pair ${pair.id} returned volumeToken1 < yesterday.volumeToken1`)
-          }
-        }
+  let result = pairs?.map((pair): MappedDetailedPair => {
+    const yesterday = yesterdayVolumeIndex[pair.id];
 
-        return {
-          ...pair,
-          price:
-            pair.reserve0 !== '0' && pair.reserve1 !== '0'
-              ? new BigNumber(pair.reserve1).dividedBy(pair.reserve0).toString()
-              : undefined,
-          previous24hVolumeToken0:
-            pair.volumeToken0 && yesterday?.volumeToken0
-              ? new BigNumber(pair.volumeToken0).minus(yesterday.volumeToken0)
-              : new BigNumber(pair.volumeToken0),
-          previous24hVolumeToken1:
-            pair.volumeToken1 && yesterday?.volumeToken1
-              ? new BigNumber(pair.volumeToken1).minus(yesterday.volumeToken1)
-              : new BigNumber(pair.volumeToken1)
-        }
+    // Check if pair has yesterday volume
+    if (yesterday)
+    {
+      if (yesterday.volumeToken0.gt(pair.volumeToken0))
+      {
+        throw new Error(`Invalid subgraph response: pair ${pair.id} returned volumeToken0 < yesterday.volumeToken0`)
       }
-    ) ?? []
-  )
+      if (yesterday.volumeToken1.gt(pair.volumeToken1))
+      {
+        throw new Error(`Invalid subgraph response: pair ${pair.id} returned volumeToken1 < yesterday.volumeToken1`)
+      }
+    }
+    
+    return {
+      ...pair,
+      price: pair.reserve0 !== '0' && pair.reserve1 !== '0' ?
+        new BigNumber(pair.reserve1).dividedBy(pair.reserve0).toString() : undefined,
+        previous24hVolumeToken0: pair.volumeToken0 && yesterday?.volumeToken0 ?
+          new BigNumber(pair.volumeToken0).minus(yesterday.volumeToken0) : new BigNumber(pair.volumeToken0),
+        previous24hVolumeToken1: pair.volumeToken1 && yesterday?.volumeToken1 ?
+          new BigNumber(pair.volumeToken1).minus(yesterday.volumeToken1) : new BigNumber(pair.volumeToken1)
+      }
+    }
+  ) ?? [];
+  // console.log(result);
+  /*
+    {
+    __typename: 'Pair',
+    id: '0xa2107fa5b38d9bbd2c461d6edf11b11a50f6b974',
+    reserve0: '1513834.825146948486966376',
+    reserve1: '26738.239416309980799041',
+    token0: {
+      __typename: 'Token',
+      id: '0x514910771af9ca656af840dff83e8264ecf986ca',
+      name: 'ChainLink Token',
+      symbol: 'LINK'
+    },
+    token1: {
+      __typename: 'Token',
+      id: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      name: 'Wrapped Ether',
+      symbol: 'WETH'
+    },
+    volumeToken0: '110345682.341163534719860952',
+    volumeToken1: '2681909.241429159407562059',
+    price: '0.01766258707498982946',
+    previous24hVolumeToken0: BigNumber { s: 1, e: 5, c: [Array] },
+    previous24hVolumeToken1: BigNumber { s: 1, e: 3, c: [Array] }
+  }
+  */
+
+  return result;
 }
 
 function isSorted(tokenA: string, tokenB: string): boolean {
